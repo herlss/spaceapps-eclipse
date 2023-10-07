@@ -10,9 +10,6 @@ export class User implements IUser {
     _id: string;
 
     @Prop({ required: true })
-    username: string;
-
-    @Prop({ required: true })
     position: number[];
 }
 

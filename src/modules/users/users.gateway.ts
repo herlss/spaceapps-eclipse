@@ -6,7 +6,7 @@ import { User } from "./schemas/user.schema";
 import { InjectModel } from "@nestjs/mongoose";
 
 @Injectable()
-@WebSocketGateway()
+@WebSocketGateway({ cors: { origin: "http://localhost:3000", methods: ["GET", "POST"] } })
 export class UsersGateway {
     constructor(
         @InjectModel(User.name)
@@ -30,7 +30,7 @@ export class UsersGateway {
 		@MessageBody()
 		    data: User
 	) {
-	    this.usersModel.findByIdAndRemove(data._id);
+	    await this.usersModel.findByIdAndRemove(data._id);
 
 	    this.server.emit("newLocal", this.usersModel.find());
 	}
@@ -41,8 +41,9 @@ export class UsersGateway {
     	    data: User
 	) {
 	    await this.usersModel.updateOne({ _id: data._id }, { $set: { position: data.position } });
+	    const users = await this.usersModel.find();
 
-	    this.server.emit("newLocal", this.usersModel.find());
+	    this.server.emit("newLocal", users);
 	}
 
 	@SubscribeMessage("newUser")
