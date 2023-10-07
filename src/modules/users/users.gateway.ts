@@ -1,28 +1,60 @@
-import { ConnectedSocket, MessageBody, OnGatewayConnection, OnGatewayDisconnect, SubscribeMessage, WebSocketGateway, WebSocketServer } from "@nestjs/websockets";
+import { Injectable } from "@nestjs/common";
+import { MessageBody, SubscribeMessage, WebSocketGateway, WebSocketServer } from "@nestjs/websockets";
+import { Model } from "mongoose";
 import { Server, Socket } from "socket.io";
+import { User } from "./schemas/user.schema";
+import { InjectModel } from "@nestjs/mongoose";
 
+@Injectable()
 @WebSocketGateway()
-export class UsersGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class UsersGateway {
+    constructor(
+        @InjectModel(User.name)
+        private readonly usersModel: Model<User>
+    ) {}
+
 	@WebSocketServer()
 	server: Server;
 
-	handleConnection(client: Socket) {
+	@SubscribeMessage("connecting")
+	async handleConnection(client: Socket) {
 	    console.log(`Client connected: ${client.id}`);
-	}
-	
-	handleDisconnect(client: Socket) {
-	    console.log(`Client disconnected: ${client.id}`);
+
+	    const users: User[] = await this.usersModel.find();
+
+	    this.server.emit("connected", users);
 	}
 
-    // @SubscribeMessage("message")
-    // handleMessage(
-    // 	@MessageBody() 
-    // 	    message: string, 
-    // 	@ConnectedSocket() 
-    // 	    client: Socket
-    // ) {
-    //     console.log(client);
-    //     console.log(message);
-    //     this.server.emit("message", message);
-    // }
+	@SubscribeMessage("disconnected")
+	async handleDisconnect(
+		@MessageBody()
+		    data: User
+	) {
+	    this.usersModel.findByIdAndRemove(data._id);
+
+	    this.server.emit("newLocal", this.usersModel.find());
+	}
+
+    @SubscribeMessage("userMove")
+	async handleUserMovement(
+    	@MessageBody() 
+    	    data: User
+	) {
+	    await this.usersModel.updateOne({ _id: data._id }, { $set: { position: data.position } });
+
+	    this.server.emit("newLocal", this.usersModel.find());
+	}
+
+	@SubscribeMessage("newUser")
+    async handleNewUser(
+    	@MessageBody() 
+    	    data: User
+    ) {
+	    const existingUser = await this.usersModel.findById(data._id);
+        if (existingUser) {
+            await this.usersModel.updateOne({ _id: existingUser._id }, { $set: { position: data.position } });
+        } else {
+            await this.usersModel.create(data);
+        }
+    }
 }
