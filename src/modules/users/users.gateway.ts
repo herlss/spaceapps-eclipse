@@ -41,7 +41,7 @@ export class UsersGateway {
     	    data: User
 	) {
 	    await this.usersModel.updateOne({ _id: data._id }, { $set: { position: data.position } });
-	    const users = await this.usersModel.find();
+	    const users: User[] = await this.usersModel.find();
 
 	    this.server.emit("newLocal", users);
 	}
