@@ -11,6 +11,9 @@ export class User implements IUser {
 
     @Prop({ required: true })
     position: number[];
+
+    @Prop({ required: true })
+    room: string;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

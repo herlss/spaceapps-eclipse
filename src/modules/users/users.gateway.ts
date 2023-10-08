@@ -1,61 +1,85 @@
-import { Injectable } from "@nestjs/common";
-import { MessageBody, SubscribeMessage, WebSocketGateway, WebSocketServer } from "@nestjs/websockets";
-import { Model } from "mongoose";
-import { Server, Socket } from "socket.io";
-import { User } from "./schemas/user.schema";
-import { InjectModel } from "@nestjs/mongoose";
+import { Injectable, UseInterceptors } from '@nestjs/common';
+import {
+  ConnectedSocket,
+  MessageBody,
+  OnGatewayConnection,
+  OnGatewayDisconnect,
+  SubscribeMessage,
+  WebSocketGateway,
+  WebSocketServer,
+} from '@nestjs/websockets';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { Server, Socket } from 'socket.io';
+import { User } from './schemas/user.schema';
+import { UsersInterceptor } from '../../common/interceptors/users.interceptor';
 
 @Injectable()
-@WebSocketGateway({ cors: { origin: "http://localhost:3000", methods: ["GET", "POST"] } })
-export class UsersGateway {
-    constructor(
-        @InjectModel(User.name)
-        private readonly usersModel: Model<User>
-    ) {}
+@WebSocketGateway({
+  namespace: '/game',
+  cors: { origin: 'http://localhost:3000', methods: ['GET', 'POST'] },
+})
+export class UsersGateway implements OnGatewayConnection, OnGatewayDisconnect {
+  constructor(
+    @InjectModel(User.name)
+    private readonly usersModel: Model<User>,
+  ) {}
 
-	@WebSocketServer()
-	server: Server;
+  @WebSocketServer()
+  server: Server;
 
-	@SubscribeMessage("connecting")
-	async handleConnection(client: Socket) {
-	    console.log(`Client connected: ${client.id}`);
+  async handleConnection(
+    @ConnectedSocket()
+    client: Socket,
+  ) {
+    const room = client.handshake.query.room;
 
-	    const users: User[] = await this.usersModel.find();
+    const user: User = await this.usersModel.create({
+      _id: client.id,
+      position: [0, 0],
+	  room: room
+    });
+    const users: User[] = await this.usersModel.find({ room: room });
 
-	    this.server.emit("connected", users);
-	}
+    client.join(room);
 
-	@SubscribeMessage("disconnected")
-	async handleDisconnect(
-		@MessageBody()
-		    data: User
-	) {
-	    await this.usersModel.findByIdAndRemove(data._id);
+    this.server.to(room).emit('users:joined', users);
+    client.emit('users:created', user);
+  }
 
-	    this.server.emit("newLocal", this.usersModel.find());
-	}
+  async handleDisconnect(
+    @ConnectedSocket()
+    client: Socket,
+  ) {
+    const room: string =
+      client.handshake.query.room instanceof Array
+        ? client.handshake.query.room[0]
+        : client.handshake.query.room;
 
-    @SubscribeMessage("userMove")
-	async handleUserMovement(
-    	@MessageBody() 
-    	    data: User
-	) {
-	    await this.usersModel.updateOne({ _id: data._id }, { $set: { position: data.position } });
-	    const users: User[] = await this.usersModel.find();
+    await this.usersModel.findByIdAndDelete(client.id);
 
-	    this.server.emit("newLocal", users);
-	}
+    const users = await this.usersModel.find({ room: room });
 
-	@SubscribeMessage("newUser")
-    async handleNewUser(
-    	@MessageBody() 
-    	    data: User
-    ) {
-	    const existingUser = await this.usersModel.findById(data._id);
-        if (existingUser) {
-            await this.usersModel.updateOne({ _id: existingUser._id }, { $set: { position: data.position } });
-        } else {
-            await this.usersModel.create(data);
-        }
-    }
+    client.leave(room);
+
+    this.server.to(room).emit('users:updated', users);
+  }
+
+  @SubscribeMessage('users:updated')
+  async handleUsersUpdate(
+    @ConnectedSocket()
+    client: Socket,
+    @MessageBody()
+    user: User,
+  ) {
+    const room = client.handshake.query.room;
+
+    await this.usersModel.findByIdAndUpdate(client.id, {
+      $set: { position: user.position },
+    });
+
+    const users = await this.usersModel.find({ room: room });
+
+    this.server.to(room).emit('users:updated', users);
+  }
 }
