@@ -17,7 +17,7 @@ import { UsersInterceptor } from '../../common/interceptors/users.interceptor';
 @Injectable()
 @WebSocketGateway({
   namespace: '/game',
-  cors: { origin: 'http://localhost:3000', methods: ['GET', 'POST'] },
+  cors: { origin: process.env.APP_URL, methods: ['GET', 'POST'] },
 })
 export class UsersGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
@@ -33,11 +33,13 @@ export class UsersGateway implements OnGatewayConnection, OnGatewayDisconnect {
     client: Socket,
   ) {
     const room = client.handshake.query.room;
+    const char = client.handshake.query.character;
 
     const user: User = await this.usersModel.create({
       _id: client.id,
       position: [0, 0],
-	  room: room
+	    room: room,
+      character: char
     });
     const users: User[] = await this.usersModel.find({ room: room });
 
@@ -77,6 +79,8 @@ export class UsersGateway implements OnGatewayConnection, OnGatewayDisconnect {
     await this.usersModel.findByIdAndUpdate(client.id, {
       $set: { position: user.position },
     });
+
+    console.log(user);
 
     const users = await this.usersModel.find({ room: room });
 
