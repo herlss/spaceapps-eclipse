@@ -17,7 +17,7 @@ import { UsersInterceptor } from '../../common/interceptors/users.interceptor';
 @Injectable()
 @WebSocketGateway({
   namespace: '/game',
-  cors: { origin: 'http://localhost:3000', methods: ['GET', 'POST'] },
+  cors: { origin: 'https://musa-space-apps.onrender.com', methods: ['GET', 'POST'] },
 })
 export class UsersGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
