@@ -80,6 +80,8 @@ export class UsersGateway implements OnGatewayConnection, OnGatewayDisconnect {
       $set: { position: user.position },
     });
 
+    console.log(user);
+
     const users = await this.usersModel.find({ room: room });
 
     this.server.to(room).emit('users:updated', users);
