@@ -14,6 +14,10 @@ export class UsersService {
         return await this.userModel.find();
     }
 
+    async getUsersByRoom(roomId: string) {
+        return await this.userModel.find({ room: roomId });
+    }
+
     async deleteUsers() {
         await this.userModel.deleteMany();
     }

@@ -11,6 +11,12 @@ export class EclipsesService {
         private readonly eclipseModel: Model<Eclipse>,
     ) {}
 
+    async getEclipseByName(
+        name: string,
+    ): Promise<Eclipse> {
+        return await this.eclipseModel.findOne({ name });
+    }
+
     async getEclipses(): Promise<Eclipse[]> {
         return await this.eclipseModel.find();
     }

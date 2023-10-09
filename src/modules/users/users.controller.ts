@@ -2,7 +2,8 @@ import {
     Controller, 
     Delete, 
     HttpCode,
-    Get
+    Get,
+    Param
 } from "@nestjs/common";
 import { UsersService } from "./users.service";
 import { User } from "./schemas/user.schema";
@@ -16,6 +17,11 @@ export class UsersController {
     @Get()
     async getUsers(): Promise<User[]> {
         return await this.usersService.getUsers();
+    }
+
+    @Get("/room/:roomId")
+    async getUsersByRoom(@Param("roomId") roomId): Promise<User[]> {
+        return await this.usersService.getUsersByRoom(roomId);
     }
 
     @HttpCode(204)
